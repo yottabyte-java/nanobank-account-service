@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NanoBank — Account Service</title>
+<style>
+  :root {
+    --bg: #0c1117;
+    --panel: #141a24;
+    --panel-2: #1b2330;
+    --accent: #5eead4;
+    --text: #e6edf3;
+    --text-dim: #8b96a5;
+    --bad: #f5707a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 24px 16px 60px;
+  }
+  .app { max-width: 520px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px 0; }
+  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 14px 0; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid #263241;
+    border-radius: 7px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #06231f;
+    border: none;
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid #263241; }
+  .account {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .account-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .owner { font-weight: 600; font-size: 14.5px; }
+  .balance { font-family: 'SF Mono', Consolas, monospace; color: var(--accent); font-size: 16px; }
+  .id { color: var(--text-dim); font-size: 11px; font-family: monospace; margin-bottom: 10px; word-break: break-all; }
+  .action-row { display: flex; gap: 8px; }
+  .action-row input { margin-bottom: 0; }
+  .action-row button { flex-shrink: 0; }
+  .error { color: var(--bad); font-size: 13px; margin-top: 8px; }
+  .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>NanoBank</h1>
+  <div class="sub">Account Service — local demo</div>
+
+  <div class="card">
+    <h2>Create Account</h2>
+    <input id="ownerName" placeholder="Owner name">
+    <input id="openingBalance" placeholder="Opening balance (e.g. 100.00)" type="number" step="0.01">
+    <button onclick="createAccount()">Create Account</button>
+    <div id="createError" class="error"></div>
+  </div>
+
+  <div class="card">
+    <h2>Accounts</h2>
+    <div id="accountList"></div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1/accounts';
+
+async function loadAccounts() {
+  const res = await fetch(API);
+  const accounts = await res.json();
+  const listEl = document.getElementById('accountList');
+  if (accounts.length === 0) {
+    listEl.innerHTML = '<div class="empty">No accounts yet</div>';
+    return;
+  }
+  listEl.innerHTML = accounts.map(acc => `
+    <div class="account">
+      <div class="account-top">
+        <span class="owner">${acc.ownerName}</span>
+        <span class="balance">R${Number(acc.balance.amount).toFixed(2)}</span>
+      </div>
+      <div class="id">${acc.accountId}</div>
+      <div class="action-row">
+        <input type="number" step="0.01" placeholder="Amount" id="amt-${acc.accountId}">
+        <button onclick="deposit('${acc.accountId}')">Deposit</button>
+        <button class="secondary" onclick="withdraw('${acc.accountId}')">Withdraw</button>
+      </div>
+      <div class="error" id="err-${acc.accountId}"></div>
+    </div>
+  `).join('');
+}
+
+async function createAccount() {
+  const ownerName = document.getElementById('ownerName').value;
+  const openingBalance = document.getElementById('openingBalance').value;
+  const errEl = document.getElementById('createError');
+  errEl.textContent = '';
+  if (!ownerName || !openingBalance) {
+    errEl.textContent = 'Enter both a name and opening balance.';
+    return;
+  }
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ownerName, openingBalance })
+  });
+  if (!res.ok) {
+    errEl.textContent = await res.text();
+    return;
+  }
+  document.getElementById('ownerName').value = '';
+  document.getElementById('openingBalance').value = '';
+  loadAccounts();
+}
+
+async function deposit(id) {
+  await doAction(id, 'deposit');
+}
+
+async function withdraw(id) {
+  await doAction(id, 'withdraw');
+}
+
+async function doAction(id, action) {
+  const amountInput = document.getElementById(`amt-${id}`);
+  const errEl = document.getElementById(`err-${id}`);
+  errEl.textContent = '';
+  const amount = amountInput.value;
+  if (!amount) {
+    errEl.textContent = 'Enter an amount.';
+    return;
+  }
+  const res = await fetch(`${API}/${id}/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount })
+  });
+  if (!res.ok) {
+    errEl.textContent = await res.text();
+    return;
+  }
+  loadAccounts();
+}
+
+loadAccounts();
+</script>
+</body>
+</html>
