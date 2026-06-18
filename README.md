@@ -30,10 +30,14 @@ Open `http://localhost:8080` in your browser.
 
 ## API
 
-| Method | Path | Description | Response |
-------------------------------------------------------------------------------------
-| POST | /api/v1/accounts | Create account | 201 + created account |
-| GET | /api/v1/accounts | List all accounts | 200 + array of accounts |
-| GET | /api/v1/accounts/{id} | Get one account | 200 or 404 |
-| POST | /api/v1/accounts/{id}/deposit | Deposit | 200 or 400 |
-| POST | /api/v1/accounts/{id}/withdraw | Withdraw | 200, 400 insufficient funds |
+
+ POST 
+ /api/v1/account/ **Create account**
+ GET 
+ /api/v1/accounts/  **List all accounts**
+ GET 
+ /api/v1/accounts/{id}/  **Get one account**
+ POST 
+ /api/v1/accounts/{id}/deposit/ **Deposit**
+ POST 
+ /api/v1/accounts/{id}/withdraw/** withdraw**
